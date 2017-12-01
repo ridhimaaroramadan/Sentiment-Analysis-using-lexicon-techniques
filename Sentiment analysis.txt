@@ -1,0 +1,93 @@
+Sentimental Analysis on #GST
+#Data collection
+#By using the API
+#Steps to follow
+require(twitteR) // libraries required
+require(RCurl)
+require(ROAuth)
+
+consumer_key <-"qliAcrQdHvXFcteBGr2yTlsff"
+consumer_secret<-"YWJQI7kiaMm1SCyEIG0TcBVPMbWGrfKKrlC4r2oLkv0XG9HoQ0"
+access_token<-"2909201522-i4rHaPFeAHlw470HU8J03F9Dri43m5X1HvVjvz3"
+access_secret<-"aBGf9ocx12N1p0xMtm1g5VzF1n1qogmaEg1avrPvBuGGY"
+
+setup_twitter_oauth(consumer_key,consumer_secret,access_token, access_secret)
+
+some_text <- searchTwitter("#PresidentialElection", n="10000", lang= "en")
+
+df<- do.call("rbind", lapply(some_text, as.data.frame))
+write.csv(df, file="name.csv") // for converting the tweets data into a csv file
+
+
+##Sentiment Analysis Approach
+We count the number of positive words and negative words in a tweet and assign a sentiment score
+Score = Number of positive words - Number of negative words
+If Score > 0, means that the tweet has 'positive sentiment'
+If Score < 0, means that the tweet has 'negative sentiment'
+If Score = 0, means that the tweet has 'neutral sentiment'
+
+##Loading of Positive and Negative Dictionaries
+pos = scan('/Users/julian/Documents/positive-words.txt', what='character', comment.char=';')
+neg = scan('/Users/julian/Documents/negative-words.txt', what='character', comment.char=';')
+https://github.com/mjhea0/twitter-sentiment-analysis/tree/master/wordbanks // for finding the dictionaries
+
+
+##Algorithm to follow
+score.sentiment = function(sentences, pos.words, neg.words, .progress='none')
+{
+require(plyr)
+require(stringr)
+# we got a vector of sentences. plyr will handle a list
+# or a vector as an "l" for us
+# we want a simple array ("a") of scores back, so we use
+# "l" + "a" + "ply" = "laply":
+scores = laply(sentences, function(sentence, pos.words, neg.words) {
+# clean up sentences with R's regex-driven global substitute, gsub():
+sentence = gsub('[[:punct:]]', '', sentence)
+sentence = gsub('[[:cntrl:]]', '', sentence)
+sentence = gsub('\\d+', '', sentence)
+# and convert to lower case:
+sentence = tolower(sentence)
+# split into words. str_split is in the stringr package
+word.list = str_split(sentence, '\\s+')
+# sometimes a list() is one level of hierarchy too much
+words = unlist(word.list)
+# compare our words to the dictionaries of positive & negative terms
+pos.matches = match(words, pos.words)
+neg.matches = match(words, neg.words)
+# match() returns the position of the matched term or NA
+# we just want a TRUE/FALSE:
+pos.matches = !is.na(pos.matches)
+neg.matches = !is.na(neg.matches)
+# and conveniently enough, TRUE/FALSE will be treated as 1/0 by sum():
+score = sum(pos.matches) - sum(neg.matches)
+return(score)
+}, pos.words, neg.words, .progress=.progress )
+scores.df = data.frame(score=scores, text=sentences)
+return(scores.df)
+}
+
+## Final Analysis
+scores = score.sentiment(text, pos,neg, .progress='text')
+noof_tweets = c(length(text))
+noof_tweets
+scores$positive <- as.numeric(scores$score >0)
+scores$negative <- as.numeric(scores$score <0)
+score$negative
+scores$neutral <- as.numeric(scores$score==0)
+scores$positive
+scores$negative <- as.numeric(scores$score>0)
+scores$tweets = factor(rep(c("text"), noof_tweets))
+tweet_text <- subset(scores, scores$tweets=="text")
+tweet_text$polarity <- ifelse(tweet_text$score >0,"positive",ifelse(tweet_text$score < 0,"negative",ifelse(tweet_text$score==0,"Neutral",0)))
+install.packages("ggplot2")
+require(ggplot2)
+qplot(factor(polarity), data=tweet_text, geom="bar", fill=factor(polarity))+xlab("Polarity Categories") + ylab("Frequency") + ggtitle("Sentiment Analysis")
+sum(scores$positive)
+sum(scores$negative)
+sum(scores$neutral)
+
+
+We get graphs after this which gives us around 5334 neutral tweets ,3359 positive tweets and 1307 negative tweets
+
+
